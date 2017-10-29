@@ -1,10 +1,13 @@
 package ru.spbau.mit
-import kotlin.test.assertEquals
+
 import org.junit.Test
+import kotlin.test.assertEquals
 
 class TestSource {
     @Test
-    fun testGreeting() {
-        assertEquals("Hello, world!", getGreeting())
+    fun testGetTitle() {
+        assertEquals("IMPOSSIBLE", getTitle(3, "a?c"))
+        assertEquals("abba", getTitle(2, "a??a"))
+        assertEquals("abba", getTitle(2, "?b?a"))
     }
 }
