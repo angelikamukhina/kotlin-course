@@ -1,197 +1,102 @@
-grammar FunParser;
+grammar Fun;
 
+/* parser rules */
 
-eval returns [double value]
-    :    exp=additionExp {$value = $exp.value;}
+file
+    : block
     ;
 
-additionExp returns [double value]
-    :    m1=multiplyExp       {$value =  $m1.value;}
-         ( '+' m2=multiplyExp {$value += $m2.value;}
-         | '-' m2=multiplyExp {$value -= $m2.value;}
-         )*
+block
+    : (statement)*
     ;
 
-multiplyExp returns [double value]
-    :    a1=atomExp       {$value =  $a1.value;}
-         ( '*' a2=atomExp {$value *= $a2.value;}
-         | '/' a2=atomExp {$value /= $a2.value;}
-         )*
+blockWithBraces
+    : LeftBrace block RightBrace
     ;
 
-atomExp returns [double value]
-    :    n=Number                {$value = Double.parseDouble($n.text);}
-    |    '(' exp=additionExp ')' {$value = $exp.value;}
+statement
+    : functionDeclaration
+    | variableDeclaration
+    | whileStatement
+    | ifStatement
+    | assignment
+    | returnStatement
+    | expression
     ;
 
+functionDeclaration
+    : Fun Identifier LeftParenthese parameterNames RightParenthese blockWithBraces
+    ;
+
+variableDeclaration
+    : Var Identifier (Assign expression)?
+    ;
+
+parameterNames :
+    (Identifier (Comma Identifier)*)?
+    ;
+
+whileStatement
+    : While LeftParenthese expression RightParenthese blockWithBraces
+    ;
+
+ifStatement
+    : If LeftParenthese expression RightParenthese blockWithBraces (Else blockWithBraces)?
+    ;
+
+assignment
+    : Identifier Assign expression
+    ;
+
+returnStatement
+    : Return expression
+    ;
+
+expression
+    : Identifier LeftParenthese arguments RightParenthese # functionCall
+    | UnaryOperations expression # unaryExpression
+    | expression MultiplicationOperations expression # multExpression
+    | expression AdditionOperations expression # addExpression
+    | expression RelationOperations expression # relExpression
+    | expression EqualityOperations expression # eqExpression
+    | expression And expression # andExpression
+    | expression Or expression # orExpression
+    | (Number | Identifier | LeftParenthese expression RightParenthese) # atomicExpression
+    ;
+
+arguments
+    : (expression (Comma expression)*)?
+    ;
+
+/* lexer rules */
+
+/* keywords */
+
+Fun : 'fun' ;
+Var : 'var' ;
+While : 'while' ;
+If : 'if' ;
+Else : 'else' ;
+Return : 'return' ;
+Assign : '=' ;
+
+Identifier : [a-zA-Z] [a-zA-Z0-9]* ;
+Number : '0' | ('1'..'9') + ('0'..'9')* ;
+Comment : '//' ~[\n\r]* -> channel(HIDDEN) ;
+WS : [ \t\r\n] -> skip;
+LeftBrace : '{' ;
+RightBrace : '}' ;
+LeftParenthese : '(' ;
+RightParenthese : ')' ;
+Comma : ',' ;
 
 
+/* binary operations */
 
-//grammar Exp;
-//
-//file
-//    :   block
-//    ;
-//
-//block
-//    : (statement)*
-//    ;
-//
-//blockWithBraces
-//    : '{' block '}'
-//    ;
-//
-//Statement
-//    : FunctionDeclaration
-//    | VariableDeclaration
-//    | Expression
-//    | whileStatement
-//    | ifStatement
-//    | Assignment
-//    | returnStatement
-//    ;
-//
-//FunctionDeclaration
-//    : 'fun' IDENTIFIER '(' ParameterNames ')' BlockWithBraces
-//    ;
-//
-//VariableDeclaration
-//    : 'var' IDENTIFIER ('=' expression)?
-//    ;
-//
-//ParameterNames :
-//    (IDENTIFIER (',' IDENTIFIER)*)?
-//    ;
-//
-//WhileStatement
-//    : 'while' '(' expression ')' BlockWithBraces
-//    ;
-//
-//IfStatement
-//    : 'if' '(' expression ')' BlockWithBraces ('else' BlockWithBraces)?
-//    ;
-//
-//Assignment
-//    : '=' expression
-//    ;
-//
-//ReturnStatement
-//    : 'return' expression
-//    ;
-//
-//Expression
-//    : FunctionCall | BinaryExpression | IDENTIFIER | LITERAL | '(' Expression ')'
-//    ;
-//
-//FunctionCall
-//    : IDENTIFIER '(' Arguments ')'
-//    ;
-//
-//Arguments
-//    : (Expression (',' Expression)*)?
-//    ;
-//
-//BinaryExpression
-//    : Addition
-//    | Multiplication
-//    | Division
-//    | Reminder
-//    | Greater
-//    | Less
-//    | GEQ
-//    | LEQ
-//    | EQ
-//    | NEQ
-//    | OR
-//    | AND
-//    ;
-//
-//Addition
-//    : Expression '+' Expression
-//    ;
-//
-//Multiplication
-//    : Expression '*' Expression
-//    ;
-//
-//Division
-//    : Expression '/' Expression
-//    ;
-//
-//Reminder
-//    : Expression '%' Expression
-//    ;
-//
-//Greater
-//    : Expression '>' Expression
-//    ;
-//
-//Less
-//    : Expression '<' Expression
-//    ;
-//
-//GEQ
-//    : Expression '>=' Expression
-//    ;
-//
-//LEQ
-//    : Expression '<=' Expression
-//    ;
-//
-//EQ
-//    : Expression '==' Expression
-//    ;
-//
-//NEQ
-//    : Expression '!=' Expression
-//    ;
-//
-//OR
-//    : Expression '||' Expression
-//    ;
-//
-//AND
-//    : Expression '&' Expression
-//    ;
-//
-//IDENTIFIER
-//    : [a-zA-Z] [a-zA-Z0-9]*
-//    ;
-//
-//COMMENT
-//    : '//' ~[\n\r]* -> channel(HIDDEN)
-//    ;
-//
-//
-//
-//eval returns [double value]
-//    :    exp=additionExp {$value = $exp.value;}
-//    ;
-//
-//
-//
-//additionExp returns [double value]
-//    :    m1=multiplyExp       {$value =  $m1.value;}
-//         ( '+' m2=multiplyExp {$value += $m2.value;}
-//         | '-' m2=multiplyExp {$value -= $m2.value;}
-//         )*
-//    ;
-//
-//multiplyExp returns [double value]
-//    :    a1=atomExp       {$value =  $a1.value;}
-//         ( '*' a2=atomExp {$value *= $a2.value;}
-//         | '/' a2=atomExp {$value /= $a2.value;}
-//         )*
-//    ;
-//
-//atomExp returns [double value]
-//    :    n=Number                {$value = Double.parseDouble($n.text);}
-//    |    '(' exp=additionExp ')' {$value = $exp.value;}
-//    ;
-//
-//
-//LITERAL
-//    :    ('0'..'9')+ ('.' ('0'..'9')+)?
-//    ;
-//
-//WS : (' ' | '\t' | '\r'| '\n') -> skip;
+AdditionOperations : '+' | '-' ;
+MultiplicationOperations : '*' | '/' | '%' ;
+RelationOperations : '>' | '<' | '>=' | '<=' ;
+EqualityOperations : '==' | '!=' ;
+And : '&&' ;
+Or : '||' ;
+UnaryOperations : '+' | '-' ;
