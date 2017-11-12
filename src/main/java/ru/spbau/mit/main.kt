@@ -5,50 +5,54 @@ import java.util.*
 fun getTitle(amountOfLetters: Int, pattern: String): String {
     val patternChars: CharArray = pattern.toCharArray()
     val patternLength = patternChars.size
-    val occupiedLetters = mutableListOf<Boolean>()
-    for (index in 0 until amountOfLetters) {
-        occupiedLetters.add(index, false)
-    }
+    val occupiedLetters = BitSet(amountOfLetters)
+    occupiedLetters.set(0, amountOfLetters, false)
     patternChars.forEach { letter ->
-        run {
-            if (letter != '?') {
-                occupiedLetters[letter - 'a'] = true
-            }
+        if (letter != '?') {
+            occupiedLetters.set(letter - 'a')
         }
     }
-    val startIndex = if (patternLength % 2 == 0)
+    val middle = if (patternLength % 2 == 0)
         patternLength / 2 - 1
     else
         patternLength / 2
-    for (i in startIndex downTo 0) {
+    for (i in middle downTo 0) {
         if (patternChars[i] == '?') {
-            val symmetricLetterIndex = patternLength - i - 1
-            if (patternChars[patternLength - i - 1] == '?') {
-                val theLastNotOccupiedLetterIndex = occupiedLetters.lastIndexOf(false)
+            val symmetricIndex = getSymmetricIndex(i, patternLength)
+            if (patternChars[symmetricIndex] == '?') {
+                val theLastNotOccupiedLetterIndex = occupiedLetters.previousClearBit(amountOfLetters - 1)
                 if (theLastNotOccupiedLetterIndex == -1) {
                     patternChars[i] = 'a'
                 } else {
                     patternChars[i] = 'a' + theLastNotOccupiedLetterIndex
-                    occupiedLetters[theLastNotOccupiedLetterIndex] = true
+                    occupiedLetters.set(theLastNotOccupiedLetterIndex)
                 }
-                patternChars[patternLength - i - 1] = patternChars[i]
+                patternChars[symmetricIndex] = patternChars[i]
             } else {
-                patternChars[i] = patternChars[symmetricLetterIndex]
+                patternChars[i] = patternChars[symmetricIndex]
             }
         }
     }
 
-    (0 until patternLength)
-            .filter { patternChars[it] == '?' }
-            .forEach { patternChars[it] = patternChars[patternLength - it - 1] }
-    (0 until patternLength)
-            .filter { patternChars[it] != patternChars[patternLength - it - 1] }
-            .forEach { return "IMPOSSIBLE" }
+    (patternLength - 1 downTo middle)
+            .forEach {
+                val symmetricIndex = getSymmetricIndex(it, patternLength)
+                if (patternChars[it] == '?') {
+                    patternChars[it] = patternChars[symmetricIndex]
+                }
+                if (patternChars[it] != patternChars[symmetricIndex]) {
+                    return "IMPOSSIBLE"
+                }
+            }
 
-    if (occupiedLetters.contains(false)) {
+    if (occupiedLetters.cardinality() != amountOfLetters) {
         return "IMPOSSIBLE"
     }
-    return patternChars.joinToString(separator = "")
+    return String(patternChars)
+}
+
+private fun getSymmetricIndex(index: Int, length: Int): Int {
+    return length - index - 1
 }
 
 fun main(args: Array<String>) {
