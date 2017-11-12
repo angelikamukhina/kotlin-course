@@ -1,15 +1,32 @@
-package ru.spbau.mit.visitors
+package ru.spbau.mit.visitors.evalvisitor
 
 import ru.spbau.mit.parser.FunParser.BlockWithBracesContext
 
 data class Scope(private val vars: HashMap<String, VarValue> = HashMap(),
-                 private val functions: HashMap<String, FuncBody> = HashMap()) : Cloneable{
+                 private val functions: HashMap<String, FuncBody> = HashMap()) : Cloneable {
 
     override public fun clone(): Any {
-        return Scope(vars.clone() as HashMap<String, VarValue>, functions.clone() as HashMap<String, FuncBody>)
+        val newVars = HashMap<String, VarValue>()
+        newVars.putAll(vars)
+        val newFunctions = HashMap<String, FuncBody>()
+        newFunctions.putAll(functions)
+        return Scope(newVars, newFunctions)
     }
 
-    fun changeOrAddVar(name: String, value: Int) {
+    fun changeVarValue(name: String, value: Int) {
+        if (name in vars) {
+            val varValue = vars[name]
+            if (varValue != null) {
+                varValue.hasValue = true
+                varValue.value = value
+                vars.replace(name, varValue)
+            }
+        } else {
+            throw UseOfNotDeclaredVariableException("Variable " + name + "was not declared")
+        }
+    }
+
+    fun addNewVarWithValue(name: String, value: Int) {
         if (name in vars) {
             vars.replace(name, VarValue(true, value))
         } else {
@@ -17,7 +34,7 @@ data class Scope(private val vars: HashMap<String, VarValue> = HashMap(),
         }
     }
 
-    fun addVarNameWithoutValue(name: String) {
+    fun addNewVarWithoutValue(name: String) {
         if (name in vars) {
             vars.replace(name, VarValue())
         } else {
@@ -27,14 +44,17 @@ data class Scope(private val vars: HashMap<String, VarValue> = HashMap(),
 
     fun getVarValue(name: String): Int {
         val varValue = vars[name]
-        if (varValue != null && varValue.hasValue) {
-            return varValue.value
+        if (varValue != null) {
+            when (varValue.hasValue) {
+                true -> return varValue.value
+                false -> throw UseOfNotDefinedVariableException("The variable " + name + "was not defined")
+            }
         } else {
-            throw IllegalArgumentException("There is no var value")
+            throw UseOfNotDeclaredVariableException("The variable " + name + "was not declared")
         }
     }
 
-    fun changeOrAddFunc(name: String, args: List<String>, definition: BlockWithBracesContext) {
+    fun addNewFunction(name: String, args: List<String>, definition: BlockWithBracesContext) {
         if (name in functions) {
             functions.replace(name, FuncBody(args, definition))
         } else {
@@ -47,10 +67,10 @@ data class Scope(private val vars: HashMap<String, VarValue> = HashMap(),
         if (funcBody != null) {
             return funcBody
         } else {
-            throw IllegalArgumentException("There is no such function")
+            throw UseOfNotDeclaredFunctionException("The function " + name + "was not declared")
         }
     }
 
-    data class VarValue(val hasValue: Boolean = false, val value: Int = 0)
+    data class VarValue(var hasValue: Boolean = false, var value: Int = 0)
     data class FuncBody(val argsNames: List<String>, val body: BlockWithBracesContext)
 }
