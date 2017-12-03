@@ -54,14 +54,15 @@ returnStatement
 
 expression
     : Identifier LeftParenthese arguments RightParenthese # functionCall
-    | UnaryOperations expression # unaryExpression
     | expression MultiplicationOperations expression # multExpression
     | expression AdditionOperations expression # addExpression
     | expression RelationOperations expression # relExpression
     | expression EqualityOperations expression # eqExpression
     | expression And expression # andExpression
     | expression Or expression # orExpression
-    | (Number | Identifier | LeftParenthese expression RightParenthese) # atomicExpression
+    | Number # literal
+    | Identifier # variableIdentifier
+    | LeftParenthese expression RightParenthese # atomicExpression
     ;
 
 arguments
@@ -81,7 +82,7 @@ Return : 'return' ;
 Assign : '=' ;
 
 Identifier : [a-zA-Z] [a-zA-Z0-9]* ;
-Number : '0' | ('1'..'9') + ('0'..'9')* ;
+Number : ('-')? ('0' | ('1'..'9') + ('0'..'9')*) ;
 Comment : '//' ~[\n\r]* -> channel(HIDDEN) ;
 WS : [ \t\r\n] -> skip;
 LeftBrace : '{' ;
@@ -99,4 +100,3 @@ RelationOperations : '>' | '<' | '>=' | '<=' ;
 EqualityOperations : '==' | '!=' ;
 And : '&&' ;
 Or : '||' ;
-UnaryOperations : '+' | '-' ;

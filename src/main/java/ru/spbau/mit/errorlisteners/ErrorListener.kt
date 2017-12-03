@@ -16,8 +16,4 @@ class ErrorListener : BaseErrorListener() {
                              e: RecognitionException) {
         throw ParseCancellationException("line $line:$charPositionInLine $msg")
     }
-
-    companion object {
-        val INSTANCE = ErrorListener()
-    }
 }

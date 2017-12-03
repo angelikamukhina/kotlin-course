@@ -33,11 +33,20 @@ class TestEvaluation {
                 "println((2 > 3) || (1 > 2))\n" +
                 "println((2 > 3) && (3 > 2))\n" +
                 "println((3 > 2) && (3 > 2))\n"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         val results = writer.buffer.split(" \n")
         assertEquals(listOf("3", "-1", "6", "1", "2", "0", "1", "0", "1",
                 "0", "1", "0", "1", "0", "1", "1", "0", "1",
                 "0", "0", "1", ""), results)
+    }
+
+    @Test
+    fun testNegativeNumbers() {
+        val program = "println(-1)"
+        val writer = StringWriter()
+        interpretProgram(program, writer)
+        assertEquals("-1", writer.buffer.split(" \n")[0])
     }
 
     @Test
@@ -47,8 +56,17 @@ class TestEvaluation {
                 "    i = i + 1\n" +
                 "}" +
                 "println(i)"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("10", writer.toString().replace(" \n", ""))
+    }
+
+    @Test
+    fun testReturnOnTopLevel() {
+        val program = "return 1"
+        val writer = StringWriter()
+        val res = interpretProgram(program, writer)
+        assertEquals(1, res)
     }
 
     @Test
@@ -58,7 +76,8 @@ class TestEvaluation {
                 "    i = i + 1\n" +
                 "}" +
                 "println(i)"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("6", writer.toString().replace(" \n", ""))
     }
 
@@ -71,7 +90,8 @@ class TestEvaluation {
                 "    i = i + 2\n" +
                 "}\n" +
                 "println(i)"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("2", writer.toString().replace(" \n", ""))
     }
 
@@ -84,7 +104,8 @@ class TestEvaluation {
                 "    return fib(n - 1) + fib(n - 2)\n" +
                 "}\n" +
                 "println(fib(5))"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("8", writer.toString().replace(" \n", ""))
     }
 
@@ -92,20 +113,22 @@ class TestEvaluation {
     fun testVariableDeclarationStatementEvaluation() {
         val programVarWithValue = "var i = 9\n" +
                 "println(i)"
-        val writer1 = interpretProgram(programVarWithValue)
+        val writer1 = StringWriter()
+        interpretProgram(programVarWithValue, writer1)
         assertEquals("9", writer1.toString().replace(" \n", ""))
 
         val programVarWithoutValue = "var i\n" +
                 "i = 10\n" +
                 "println(i)"
-        val writer2 = interpretProgram(programVarWithoutValue)
+        val writer2 = StringWriter()
+        interpretProgram(programVarWithoutValue, writer2)
         assertEquals("10", writer2.toString().replace(" \n", ""))
     }
 
     @Test(expected = UseOfNotDeclaredVariableException::class)
     fun testAssignmentOfUndeclaredVarStatementEvaluation() {
         val programVarWithoutValue = "i = 10"
-        interpretProgram(programVarWithoutValue)
+        interpretProgram(programVarWithoutValue, StringWriter())
     }
 
     @Test
@@ -117,7 +140,8 @@ class TestEvaluation {
                 "    return n * fact(n - 1)\n" +
                 "}\n" +
                 "println(fact(5))"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("120", writer.toString().replace(" \n", ""))
     }
 
@@ -127,7 +151,8 @@ class TestEvaluation {
                 "    var i = 0\n" +
                 "}\n" +
                 "println(foo())\n"
-        val writer = interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
         assertEquals("0", writer.toString().replace(" \n", ""))
     }
 
@@ -135,22 +160,31 @@ class TestEvaluation {
     fun testUseOfNotDefinedVariable() {
         val program = "var i\n" +
                 "println(i)\n"
-        interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
     }
 
     @Test(expected = UseOfNotDeclaredFunctionException::class)
     fun testUseOfNotDeclaredFunction() {
         val program = "println(foo())"
-        interpretProgram(program)
+        val writer = StringWriter()
+        interpretProgram(program, writer)
     }
 
-    private fun interpretProgram(program: String): StringWriter {
+    @Test(expected = ConflictingVariableDeclarationsException::class)
+    fun testDuplicateDeclaration() {
+        val program = "var a = 2\n" +
+                "println(a)\n" +
+                "var a = 3\n" +
+                "println(a)"
+        interpretProgram(program, StringWriter())
+    }
+
+    private fun interpretProgram(program: String, writer: StringWriter): Int? {
         val funLexer = FunLexer(CharStreams.fromString(program))
         val funParser = FunParser(CommonTokenStream(funLexer))
         val tree = funParser.file()
-        val writer = StringWriter()
         val visitor: FunVisitor<Int?> = FunEvalVisitor(writer)
-        visitor.visit(tree)
-        return writer
+        return visitor.visit(tree)
     }
 }

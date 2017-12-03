@@ -13,11 +13,11 @@ import java.io.OutputStreamWriter
 fun main(args: Array<String>) {
     val funLexer = FunLexer(CharStreams.fromFileName(args[0]))
     funLexer.removeErrorListeners()
-    funLexer.addErrorListener(ErrorListener.INSTANCE)
+    funLexer.addErrorListener(ErrorListener())
 
     val funParser = FunParser(CommonTokenStream(funLexer))
     funParser.removeErrorListeners()
-    funParser.addErrorListener(ErrorListener.INSTANCE)
+    funParser.addErrorListener(ErrorListener())
 
     try {
         val tree = funParser.file()
@@ -25,7 +25,7 @@ fun main(args: Array<String>) {
         visitor.visit(tree)
         printReturnCode(0)
     } catch (e: ParseCancellationException) {
-        System.err.print(e.localizedMessage)
+        System.err.print(e.message)
         System.err.flush()
         printReturnCode(1)
     } catch (e: Exception) {

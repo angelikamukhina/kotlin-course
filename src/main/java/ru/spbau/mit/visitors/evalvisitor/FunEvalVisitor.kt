@@ -3,40 +3,39 @@ package ru.spbau.mit.visitors.evalvisitor
 import ru.spbau.mit.parser.FunBaseVisitor
 import ru.spbau.mit.parser.FunParser
 import java.io.Writer
-import java.util.*
 
-class FunEvalVisitor(val writer: Writer) : FunBaseVisitor<Int?>() {
-    private val scopes = Stack<Scope>()
+class FunEvalVisitor(private val writer: Writer) : FunBaseVisitor<Int?>() {
+    private val scopes = Scopes()
 
     override fun visitFile(ctx: FunParser.FileContext): Int? {
-        scopes.push(Scope())
-        visitBlock(ctx.block())
-        scopes.pop()
-        return null
+        scopes.pushCurrentScope()
+        val result = visitBlock(ctx.block())
+        scopes.popScope()
+        return result
     }
 
     override fun visitBlock(ctx: FunParser.BlockContext): Int? {
-        ctx.statement().forEach { statement ->
-            run {
-                val statementRes = visitStatement(statement)
-                if (statementRes != null) {
-                    return statementRes
-                }
+        for (statement in ctx.statement()) {
+            if (statement.returnStatement() != null) {
+                return visit(statement.returnStatement())
+            }
+            val statementRes = visitStatement(statement)
+            if (statementRes != null) {
+                return statementRes
             }
         }
         return null
     }
 
     override fun visitBlockWithBraces(ctx: FunParser.BlockWithBracesContext): Int? {
-        return visitBlock(ctx.block())
-    }
-
-    override fun visitStatement(ctx: FunParser.StatementContext): Int? {
-        return super.visitChildren(ctx)
+        scopes.pushCurrentScope()
+        val result = visitBlock(ctx.block())
+        scopes.popScope()
+        return result
     }
 
     override fun visitFunctionDeclaration(ctx: FunParser.FunctionDeclarationContext): Int? {
-        val currentScope = scopes.peek()
+        val currentScope = scopes.getCurrentScope()
         val argNames = ctx.parameterNames().Identifier().map { par -> par.text }
         currentScope.addNewFunction(ctx.Identifier().text, argNames, ctx.blockWithBraces())
         return null
@@ -44,33 +43,40 @@ class FunEvalVisitor(val writer: Writer) : FunBaseVisitor<Int?>() {
 
     override fun visitVariableDeclaration(ctx: FunParser.VariableDeclarationContext): Int? {
         val varName = ctx.Identifier().text
-        when (ctx.expression()) {
-            null -> scopes.peek().addNewVarWithoutValue(varName)
-            else -> {
-                val value = visit(ctx.expression())
-                if (value != null) {
-                    scopes.peek().addNewVarWithValue(varName, value)
-                } else {
-                    scopes.peek().addNewVarWithoutValue(varName)
-                }
+        val currentScope = scopes.getCurrentScope()
+        if (ctx.expression() == null) {
+            currentScope.addNewVarWithoutValue(varName)
+        } else {
+            val value = visit(ctx.expression())
+            if (value != null) {
+                currentScope.addNewVarWithValue(varName, value)
+            } else {
+                currentScope.addNewVarWithoutValue(varName)
             }
         }
         return null
     }
 
     override fun visitWhileStatement(ctx: FunParser.WhileStatementContext): Int? {
-        scopes.push(scopes.peek().clone() as Scope)
-        var result: Int? = 0
-        while (visit(ctx.expression()) == 1) {
-            result = visitBlockWithBraces(ctx.blockWithBraces())
+        scopes.createNotPreparedScope()
+        fun evalExpression(): Boolean {
+            scopes.createNotPreparedScope()
+            val result = (visit(ctx.expression()) == 1)
+            if (!result) {
+                scopes.pushCurrentScope()
+            }
+            return result
         }
-        scopes.pop()
-        return result
+        while (evalExpression()) {
+            val result = visitBlockWithBraces(ctx.blockWithBraces())
+            if (result != null) return result
+        }
+        return null
     }
 
     override fun visitIfStatement(ctx: FunParser.IfStatementContext): Int? {
-        scopes.push(scopes.peek().clone() as Scope)
-        val result = if (visit(ctx.expression()) == 1) {
+        scopes.createNotPreparedScope()
+        return if (visit(ctx.expression()) == 1) {
             visitBlockWithBraces(ctx.blockWithBraces()[0])
         } else {
             if (ctx.blockWithBraces().size == 2) {
@@ -79,14 +85,12 @@ class FunEvalVisitor(val writer: Writer) : FunBaseVisitor<Int?>() {
                 null
             }
         }
-        scopes.pop()
-        return result
     }
 
     override fun visitAssignment(ctx: FunParser.AssignmentContext): Int? {
         val expressionRes = visit(ctx.expression())
         if (expressionRes != null) {
-            scopes.peek().changeVarValue(ctx.Identifier().text, expressionRes)
+            scopes.getCurrentScope().changeVarValue(ctx.Identifier().text, expressionRes)
         } else {
             throw IncorrectProgramException("Trying to assign variable to null")
         }
@@ -106,23 +110,17 @@ class FunEvalVisitor(val writer: Writer) : FunBaseVisitor<Int?>() {
             writer.flush()
             return null
         }
-        scopes.push(scopes.peek().clone() as Scope)
-        val funcBody = scopes.peek().getFuncBody(ctx.Identifier().text)
+        scopes.createNotPreparedScope()
+        val funcBody = scopes.getCurrentScope().getFuncBody(ctx.Identifier().text)
         for (argIdx in 0 until funcBody.argsNames.size) {
             val expression = ctx.arguments().expression(argIdx)
             val expressionRes = visit(expression)
             if (expressionRes != null) {
-                scopes.peek().addNewVarWithValue(funcBody.argsNames[argIdx], expressionRes)
+                scopes.getCurrentScope().addNewVarWithValue(funcBody.argsNames[argIdx], expressionRes)
             }
         }
 
-        val result = visitBlockWithBraces(funcBody.body)
-        scopes.pop()
-
-        if (result == null) {
-            return 0
-        }
-        return result
+        return visitBlockWithBraces(funcBody.body) ?: return 0
     }
 
     override fun visitOrExpression(ctx: FunParser.OrExpressionContext): Int? {
@@ -229,27 +227,15 @@ class FunEvalVisitor(val writer: Writer) : FunBaseVisitor<Int?>() {
         }
     }
 
-    override fun visitUnaryExpression(ctx: FunParser.UnaryExpressionContext): Int? {
-        return when {
-            ctx.expression() != null && ctx.expression() != null -> {
-                val childrenResult = super.visitChildren(ctx) ?:
-                        throw IllegalArgumentException("Wrong arguments for unary operation")
-                when (ctx.UnaryOperations().text) {
-                    "-" -> -childrenResult
-                    "+" -> childrenResult
-                    else -> throw IllegalArgumentException("Wrong unary operation")
-                }
-            }
-            else -> throw IllegalArgumentException("All alternatives of unaryExpression are null")
-        }
+    override fun visitLiteral(ctx: FunParser.LiteralContext): Int? {
+        return ctx.Number().text.toInt()
+    }
+
+    override fun visitVariableIdentifier(ctx: FunParser.VariableIdentifierContext): Int? {
+        return scopes.getCurrentScope().getVarValue(ctx.Identifier().text)
     }
 
     override fun visitAtomicExpression(ctx: FunParser.AtomicExpressionContext): Int? {
-        return when {
-            ctx.Number() != null -> ctx.Number().text.toInt()
-            ctx.expression() != null -> visit(ctx.expression())
-            ctx.Identifier() != null -> scopes.peek().getVarValue(ctx.Identifier().text)
-            else -> throw IllegalArgumentException("All alternatives are null in atomic expression")
-        }
+        return visit(ctx.expression())
     }
 }

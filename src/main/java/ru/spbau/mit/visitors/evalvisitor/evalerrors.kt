@@ -6,3 +6,5 @@ class UseOfNotDeclaredVariableException(message: String) : Exception(message)
 class UseOfNotDefinedVariableException(message: String) : Exception(message)
 
 class UseOfNotDeclaredFunctionException(message: String) : Exception(message)
+
+class ConflictingVariableDeclarationsException(message: String) : Exception(message)

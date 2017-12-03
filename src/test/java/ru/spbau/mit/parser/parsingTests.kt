@@ -17,11 +17,11 @@ class TestParser {
 
         val funLexer = FunLexer(CharStreams.fromString(incorrectProgram))
         funLexer.removeErrorListeners()
-        funLexer.addErrorListener(ErrorListener.INSTANCE)
+        funLexer.addErrorListener(ErrorListener())
 
         val funParser = FunParser(CommonTokenStream(funLexer))
         funParser.removeErrorListeners()
-        funParser.addErrorListener(ErrorListener.INSTANCE)
+        funParser.addErrorListener(ErrorListener())
         funParser.file()
     }
 
@@ -106,7 +106,7 @@ class TestParser {
     private fun getParser(program: String): FunParser {
         val funLexer = FunLexer(CharStreams.fromString(program))
         funLexer.removeErrorListeners()
-        funLexer.addErrorListener(ErrorListener.INSTANCE)
+        funLexer.addErrorListener(ErrorListener())
 
         val funParser = FunParser(CommonTokenStream(funLexer))
         funParser.removeErrorListeners()
